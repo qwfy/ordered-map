@@ -2,11 +2,13 @@ use std::vec::Vec;
 use std::hash::Hash;
 use std::collections::HashMap;
 
+
 #[cfg(test)]
 extern crate quickcheck;
 #[cfg(test)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
+
 
 pub struct OrderedMap<K, V, C, F>
 where
@@ -79,8 +81,22 @@ where
         }
     }
 
-}
+    pub fn remove(&mut self, k: &K) -> Option<V> {
+        match self.map.remove(k) {
+            None => None,
+            Some(v) => {
+                for i in 0..self.descendings.len() {
+                    if self.descendings[i].0 == *k {
+                        self.descendings.remove(i);
+                        break
+                    }
+                };
+                Some(v)
+            }
+        }
+    }
 
+}
 
 
 #[cfg(test)]
@@ -156,7 +172,6 @@ mod tests {
         }
 
         map.map().len() == map.descending_keys().collect::<Vec<_>>().len()
-
     }
 
     #[quickcheck]
@@ -181,5 +196,31 @@ mod tests {
         ks.dedup();
 
         a == b && b == ks
+    }
+
+    #[quickcheck]
+    fn insert_then_remove_is_empty(kvs: Vec<(i32, (f32, f64))>, other_keys: Vec<i32>) -> bool {
+        let ks: Vec<i32> = kvs.iter().map(|(k, _)| k.clone()).collect();
+        let vs: Vec<(f32, f64)> = kvs.iter().map(|(_, v)| v.clone()).collect();
+
+        let mut map = OrderedMap::new(to_comparable);
+
+        for (k, v) in ks.iter().zip(vs.iter()) {
+            map.insert(k.clone(), v.clone());
+        }
+
+        for k in ks.iter() {
+            map.remove(k);
+        }
+
+        let a = 0 == map.map().len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
+
+        for k in other_keys.iter() {
+            map.remove(k);
+        }
+
+        let b = 0 == map.map().len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
+
+        a && b
     }
 }
