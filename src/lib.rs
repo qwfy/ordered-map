@@ -1,14 +1,12 @@
-use std::hash::Hash;
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
-
-use std::collections::HashMap;
 use std::vec::Vec;
+use std::hash::Hash;
+use std::collections::HashMap;
+
+#[cfg(test)]
+extern crate quickcheck;
+#[cfg(test)]
+#[macro_use(quickcheck)]
+extern crate quickcheck_macros;
 
 pub struct OrderedMap<K, V, C, F>
 where
@@ -81,4 +79,107 @@ where
         }
     }
 
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::OrderedMap;
+    use std::collections::HashMap;
+
+    fn to_comparable(t: &(f32, f64)) -> f32 {
+        t.0
+    }
+
+    #[quickcheck]
+    fn descending_order(kvs: Vec<(i32, (f32, f64))>) -> bool {
+        let empty = kvs.is_empty();
+
+        let ks: Vec<i32> = kvs.iter().map(|(k, _)| k.clone()).collect();
+        let vs: Vec<(f32, f64)> = kvs.iter().map(|(_, v)| v.clone()).collect();
+
+        let mut map = OrderedMap::new(to_comparable);
+
+        for (k, v) in ks.iter().zip(vs.iter()) {
+            map.insert(k.clone(), v.clone());
+        }
+
+        let mut tuples: Vec<(i32, f32)> = ks.iter().zip(vs.iter())
+            .map(|(k, v)| (k.clone(), to_comparable(v)))
+            .collect();
+        let mut count = HashMap::new();
+        for k in ks.iter() {
+            count.insert(k, 0);
+        }
+        for k in ks.iter() {
+            count.insert(k, count.get(k).unwrap() + 1);
+        }
+        let mut i = 0;
+        for _ in 0..tuples.len() {
+            if i < tuples.len() {
+                let (k, _c) = tuples[i];
+                let cnt = count.get_mut(&k).unwrap();
+                if *cnt > 1 {
+                    tuples.remove(i);
+                    *cnt = *cnt - 1;
+                } else {
+                    i = i + 1;
+                }
+            } else {
+                break
+            }
+        }
+        tuples.sort_by(|(_, c1), (_, c2)| c1.partial_cmp(c2).unwrap());
+        tuples.reverse();
+
+        let truth_keys: Vec<i32> = tuples.iter().map(|(k, _)| k.clone()).collect();
+
+        let have_keys: Vec<i32> = map.descending_keys().map(|x| x.clone()).collect();
+
+        let property = truth_keys == have_keys;
+
+        let safe1 = empty || !truth_keys.is_empty();
+
+        property && safe1
+    }
+
+    #[quickcheck]
+    fn same_length(kvs: Vec<(i32, (f32, f64))>) -> bool {
+        let ks: Vec<i32> = kvs.iter().map(|(k, _)| k.clone()).collect();
+        let vs: Vec<(f32, f64)> = kvs.iter().map(|(_, v)| v.clone()).collect();
+
+        let mut map = OrderedMap::new(to_comparable);
+
+        for (k, v) in ks.iter().zip(vs.iter()) {
+            map.insert(k.clone(), v.clone());
+        }
+
+        map.map().len() == map.descending_keys().collect::<Vec<_>>().len()
+
+    }
+
+    #[quickcheck]
+    fn same_keys(kvs: Vec<(i32, (f32, f64))>) -> bool {
+        let ks: Vec<i32> = kvs.iter().map(|(k, _)| k.clone()).collect();
+        let vs: Vec<(f32, f64)> = kvs.iter().map(|(_, v)| v.clone()).collect();
+
+        let mut map = OrderedMap::new(to_comparable);
+
+        for (k, v) in ks.iter().zip(vs.iter()) {
+            map.insert(k.clone(), v.clone());
+        }
+
+        let mut a = map.descending_keys().map(|x| x.clone()).collect::<Vec<_>>();
+        a.sort();
+
+        let mut b = map.map().keys().map(|x| x.clone()).collect::<Vec<_>>();
+        b.sort();
+
+        let mut ks = ks;
+        ks.sort();
+        ks.dedup();
+
+        a == b && b == ks
+    }
 }
