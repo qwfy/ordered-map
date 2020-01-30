@@ -204,7 +204,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn insert_then_remove_is_empty(kvs: Vec<(i32, (f32, f64))>, other_keys: Vec<i32>) -> bool {
+    fn insert_then_remove_all_is_empty(kvs: Vec<(i32, (f32, f64))>, other_keys: Vec<i32>) -> bool {
         let ks: Vec<i32> = kvs.iter().map(|(k, _)| k.clone()).collect();
         let vs: Vec<(f32, f64)> = kvs.iter().map(|(_, v)| v.clone()).collect();
 
@@ -227,5 +227,31 @@ mod tests {
         let b = 0 == map.unordered().len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
 
         a && b
+    }
+
+    #[quickcheck]
+    fn insert_then_remove_is_identity(kvs: Vec<(u32, (f32, f64))>, new_v: (f32, f64)) -> bool {
+        let ks: Vec<u32> = kvs.iter().map(|(k, _)| k.clone()).collect();
+        let vs: Vec<(f32, f64)> = kvs.iter().map(|(_, v)| v.clone()).collect();
+
+        let mut map = OrderedMap::new(to_comparable);
+
+        for (k, v) in ks.iter().zip(vs.iter()) {
+            map.insert(k.clone(), v.clone());
+        }
+
+        let old_map = map.unordered().clone();
+        let old_keys = map.descending_keys().collect::<Vec<_>>().clone();
+
+        // create a unique key
+        let k: u32 = ks.iter().sum();
+        let k: u32 = k + 1;
+        map.insert(k.clone(), new_v);
+        map.remove(&k);
+
+        let new_map = map.unordered().clone();
+        let new_keys = map.descending_keys().collect::<Vec<_>>().clone();
+
+        old_map == new_map && old_keys == new_keys
     }
 }
