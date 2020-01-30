@@ -40,7 +40,7 @@ where
     }
 
 
-    pub fn map(&self) -> &HashMap<K, V> {
+    pub fn unordered(&self) -> &HashMap<K, V> {
         &self.map
     } 
 
@@ -176,7 +176,7 @@ mod tests {
             map.insert(k.clone(), v.clone());
         }
 
-        map.map().len() == map.descending_keys().collect::<Vec<_>>().len()
+        map.unordered().len() == map.descending_keys().collect::<Vec<_>>().len()
     }
 
     #[quickcheck]
@@ -193,7 +193,7 @@ mod tests {
         let mut a = map.descending_keys().map(|x| x.clone()).collect::<Vec<_>>();
         a.sort();
 
-        let mut b = map.map().keys().map(|x| x.clone()).collect::<Vec<_>>();
+        let mut b = map.unordered().keys().map(|x| x.clone()).collect::<Vec<_>>();
         b.sort();
 
         let mut ks = ks;
@@ -218,13 +218,13 @@ mod tests {
             map.remove(k);
         }
 
-        let a = 0 == map.map().len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
+        let a = 0 == map.unordered().len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
 
         for k in other_keys.iter() {
             map.remove(k);
         }
 
-        let b = 0 == map.map().len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
+        let b = 0 == map.unordered().len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
 
         a && b
     }
