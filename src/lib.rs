@@ -49,6 +49,11 @@ where
         self.descendings.iter().map(|(k, _c)| k.clone())
     }
 
+    pub fn ascending_keys(&self) -> impl Iterator<Item = K> + '_
+    {
+        self.descendings.iter().map(|(k, _c)| k.clone()).rev()
+    }
+
     fn insert_only(&mut self, k: K, c: C) {
         let mut insert_index = None;
         for (i, (_ek, ec)) in self.descendings.iter().enumerate() {
