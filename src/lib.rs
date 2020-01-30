@@ -28,6 +28,7 @@ where
     C: PartialOrd,
     F: Fn(&V) -> C,
 {
+    /// The function `to_comparable` is used to convert the value to something comparable
     pub fn new(to_comparable: F) -> Self
         where
             F: Fn(&V) -> C
@@ -40,15 +41,19 @@ where
     }
 
 
+    /// Retrieve the underlying unordered HashMap
+    /// NOTE: You should not modify this map directly
     pub fn unordered(&self) -> &HashMap<K, V> {
         &self.map
     } 
 
+    /// Keys of this map in descending order
     pub fn descending_keys(&self) -> impl Iterator<Item = K> + '_
     {
         self.descendings.iter().map(|(k, _c)| k.clone())
     }
 
+    /// Keys of this map in ascending order
     pub fn ascending_keys(&self) -> impl Iterator<Item = K> + '_
     {
         self.descendings.iter().map(|(k, _c)| k.clone()).rev()
@@ -69,6 +74,7 @@ where
         self.descendings.insert(idx, (k, c));
     }
 
+    /// Insert a new key-value pair to the map
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
         let new_c = (self.to_comparable)(&v);
         let old_len = self.descendings.len();
@@ -90,6 +96,7 @@ where
         }
     }
 
+    /// Remove a key-value pair from the map
     pub fn remove(&mut self, k: &K) -> Option<V> {
         match self.map.remove(k) {
             None => None,
