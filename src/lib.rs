@@ -69,19 +69,23 @@ where
         self.descendings.insert(idx, (k, c));
     }
 
-    pub fn insert(&mut self, k: K, v: V) {
+    pub fn insert(&mut self, k: K, v: V) -> Option<V> {
         let new_c = (self.to_comparable)(&v);
         let old_len = self.descendings.len();
         match self.map.insert(k, v) {
-            None => self.insert_only(k, new_c),
-            Some(_) => {
+            None => {
+                self.insert_only(k, new_c);
+                None
+            },
+            Some(v) => {
                 for i in 0..old_len {
                     if self.descendings[i].0 == k {
                         self.descendings.remove(i);
                         break
                     }
                 }
-                self.insert_only(k, new_c)
+                self.insert_only(k, new_c);
+                Some(v)
             }
         }
     }
