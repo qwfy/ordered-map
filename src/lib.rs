@@ -9,29 +9,25 @@ extern crate quickcheck;
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
+type ToComparable<V, C> = fn(&V) -> C;
 
-pub struct OrderedMap<K, V, C, F>
-where
-    F: Fn(&V) -> C,
+pub struct OrderedMap<K, V, C>
 {
     map: HashMap<K, V>,
 
     descendings: Vec<(K, C)>,
 
-    to_comparable: F
+    to_comparable: ToComparable<V, C>,
 }
 
 
-impl<K, V, C, F> OrderedMap<K, V, C, F>
+impl<K, V, C> OrderedMap<K, V, C>
 where
     K: Eq + Hash + Copy,
     C: PartialOrd,
-    F: Fn(&V) -> C,
 {
     /// The function `to_comparable` is used to convert the value to something comparable
-    pub fn new(to_comparable: F) -> Self
-        where
-            F: Fn(&V) -> C
+    pub fn new(to_comparable: ToComparable<V, C>) -> Self
     {
         OrderedMap {
             map: HashMap::new(),
