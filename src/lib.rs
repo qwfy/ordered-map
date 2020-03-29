@@ -1,92 +1,133 @@
-use std::vec::Vec;
-use std::hash::Hash;
-use std::collections::HashMap;
-
-
 #[cfg(test)]
 extern crate quickcheck;
 #[cfg(test)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
-type ToComparable<V, C> = fn(&V) -> C;
+use std::collections::HashMap;
+use std::hash::Hash;
+use std::ops::Index;
+use std::vec::Vec;
 
+type ExtractComparable<V, C> = fn(&V) -> C;
+
+/// An `OrderedMap` is like a `std::collections::HashMap`,
+/// but it is sorted according to the value in descending order.
+/// It doesn't require the value of the map, `V`, to be comparable,
+/// the comparision of the value is done on `C`,
+/// which is the return value of `extract_comparable(&V)`.
 pub struct OrderedMap<K, V, C>
 {
     map: HashMap<K, V>,
 
-    descendings: Vec<(K, C)>,
+    descending_pairs: Vec<(K, C)>,
 
-    to_comparable: ToComparable<V, C>,
+    extract_comparable: ExtractComparable<V, C>,
+}
+
+pub struct Keys<'a, K: 'a, C: 'a>
+{
+    inner: std::slice::Iter<'a, (K, C)>
+}
+
+impl<'a, K: 'a, C: 'a> Iterator for Keys<'a, K, C>
+{
+    type Item = &'a K;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.inner.next() {
+            None => None,
+            Some((k, _)) => Some(k)
+        }
+    }
+}
+
+pub struct Values<'a, K, V, C>
+{
+    map: &'a HashMap<K, V>,
+    keys: Keys<'a, K, C>,
+}
+
+impl<'a, K, V, C> Iterator for Values<'a, K, V, C>
+    where
+        K: Eq + Hash,
+{
+    type Item = &'a V;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.keys.next() {
+            None => None,
+            Some(k) => Some(self.map.index(k))
+        }
+    }
 }
 
 
-impl<K, V, C> OrderedMap<K, V, C>
-where
-    K: Eq + Hash + Copy,
-    C: PartialOrd,
+impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
+    where
+        K: Eq + Hash + Copy,
+        C: PartialOrd
 {
-    /// The function `to_comparable` is used to convert the value to something comparable
-    pub fn new(to_comparable: ToComparable<V, C>) -> Self
+    /// The function `extract_comparable` is used to convert the value of type `&V`
+    /// to something comparable of type `C`
+    pub fn new(extract_comparable: ExtractComparable<V, C>) -> Self
     {
         OrderedMap {
             map: HashMap::new(),
-            descendings: vec![],
-            to_comparable: to_comparable,
+            descending_pairs: vec![],
+            extract_comparable,
         }
     }
 
-
-    /// Retrieve the underlying unordered HashMap
-    /// NOTE: You should not modify this map directly
-    pub fn unordered(&self) -> &HashMap<K, V> {
+    fn unordered(&self) -> &HashMap<K, V> {
         &self.map
-    } 
+    }
 
     /// Keys of this map in descending order
-    pub fn descending_keys(&self) -> impl Iterator<Item = K> + '_
+    pub fn descending_keys(&'a self) -> Keys<'a, K, C>
     {
-        self.descendings.iter().map(|(k, _c)| k.clone())
+        Keys { inner: self.descending_pairs.iter() }
     }
 
-    /// Keys of this map in ascending order
-    pub fn ascending_keys(&self) -> impl Iterator<Item = K> + '_
+    /// Values of this map in descending order
+    pub fn descending_values(&'a self) -> Values<'a, K, V, C>
     {
-        self.descendings.iter().map(|(k, _c)| k.clone()).rev()
+        Values {
+            map: &self.map,
+            keys: self.descending_keys(),
+        }
     }
 
-    fn insert_only(&mut self, k: K, c: C) {
+    fn insert_into_pairs(&mut self, k: K, c: C) {
         let mut insert_index = None;
-        for (i, (_ek, ec)) in self.descendings.iter().enumerate() {
+        for (i, (_ek, ec)) in self.descending_pairs.iter().enumerate() {
             if &c >= ec {
                 insert_index = Some(i);
-                break
+                break;
             }
         }
         let idx = match insert_index {
-            None => self.descendings.len(),
+            None => self.descending_pairs.len(),
             Some(i) => i
         };
-        self.descendings.insert(idx, (k, c));
+        self.descending_pairs.insert(idx, (k, c));
     }
 
-    /// Insert a new key-value pair to the map
+
+
+
+    /// Insert a new key-value pair to the map,
+    /// the old value is returned as `Option<V>`
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
-        let new_c = (self.to_comparable)(&v);
-        let old_len = self.descendings.len();
+        let new_c = (self.extract_comparable)(&v);
         match self.map.insert(k, v) {
             None => {
-                self.insert_only(k, new_c);
+                self.insert_into_pairs(k, new_c);
                 None
-            },
+            }
             Some(v) => {
-                for i in 0..old_len {
-                    if self.descendings[i].0 == k {
-                        self.descendings.remove(i);
-                        break
-                    }
-                }
-                self.insert_only(k, new_c);
+                remove_from_pairs(&mut self.descending_pairs, &k);
+                self.insert_into_pairs(k, new_c);
                 Some(v)
             }
         }
@@ -97,24 +138,33 @@ where
         match self.map.remove(k) {
             None => None,
             Some(v) => {
-                for i in 0..self.descendings.len() {
-                    if self.descendings[i].0 == *k {
-                        self.descendings.remove(i);
-                        break
-                    }
-                };
+                remove_from_pairs(&mut self.descending_pairs, k);
                 Some(v)
             }
         }
     }
-
 }
 
+fn remove_from_pairs<K, C>(pairs: &mut Vec<(K, C)>, k: &K) -> bool
+where
+    K: Eq
+{
+    let mut removed = false;
+    for i in 0..pairs.len() {
+        if pairs[i].0 == *k {
+            pairs.remove(i);
+            removed = true;
+            break;
+        }
+    }
+    removed
+}
 
 #[cfg(test)]
 mod tests {
-    use super::OrderedMap;
     use std::collections::HashMap;
+
+    use super::OrderedMap;
 
     fn to_comparable(t: &(f32, f64)) -> f32 {
         t.0
@@ -155,7 +205,7 @@ mod tests {
                     i = i + 1;
                 }
             } else {
-                break
+                break;
             }
         }
         tuples.sort_by(|(_, c1), (_, c2)| c1.partial_cmp(c2).unwrap());
@@ -248,7 +298,8 @@ mod tests {
         }
 
         let old_map = map.unordered().clone();
-        let old_keys = map.descending_keys().collect::<Vec<_>>().clone();
+        let old_keys =
+            map.descending_keys().map(|k| k.clone()).collect::<Vec<u32>>();
 
         // create a unique key
         let k: u32 = ks.iter().sum();
@@ -257,7 +308,7 @@ mod tests {
         map.remove(&k);
 
         let new_map = map.unordered().clone();
-        let new_keys = map.descending_keys().collect::<Vec<_>>().clone();
+        let new_keys = map.descending_keys().map(|k| k.clone()).collect::<Vec<_>>();
 
         old_map == new_map && old_keys == new_keys
     }
