@@ -25,12 +25,12 @@ pub struct OrderedMap<K, V, C>
     extract_comparable: ExtractComparable<V, C>,
 }
 
-pub struct Keys<'a, K: 'a, C: 'a>
+pub struct DescendingKeys<'a, K: 'a, C: 'a>
 {
     inner: std::slice::Iter<'a, (K, C)>
 }
 
-impl<'a, K: 'a, C: 'a> Iterator for Keys<'a, K, C>
+impl<'a, K: 'a, C: 'a> Iterator for DescendingKeys<'a, K, C>
 {
     type Item = &'a K;
 
@@ -42,13 +42,13 @@ impl<'a, K: 'a, C: 'a> Iterator for Keys<'a, K, C>
     }
 }
 
-pub struct Values<'a, K, V, C>
+pub struct DescendingValues<'a, K, V, C>
 {
     map: &'a HashMap<K, V>,
-    keys: Keys<'a, K, C>,
+    keys: DescendingKeys<'a, K, C>,
 }
 
-impl<'a, K, V, C> Iterator for Values<'a, K, V, C>
+impl<'a, K, V, C> Iterator for DescendingValues<'a, K, V, C>
     where
         K: Eq + Hash,
 {
@@ -62,13 +62,13 @@ impl<'a, K, V, C> Iterator for Values<'a, K, V, C>
     }
 }
 
-pub struct Items<'a, K, V, C>
+pub struct DescendingItems<'a, K, V, C>
 {
     map: &'a HashMap<K, V>,
-    keys: Keys<'a, K, C>,
+    keys: DescendingKeys<'a, K, C>,
 }
 
-impl<'a, K, V, C> Iterator for Items<'a, K, V, C>
+impl<'a, K, V, C> Iterator for DescendingItems<'a, K, V, C>
     where
         K: Eq + Hash,
 {
@@ -99,29 +99,29 @@ impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
         }
     }
 
-    fn unordered(&self) -> &HashMap<K, V> {
-        &self.map
+    pub fn len(&self) -> usize {
+        self.map.len()
     }
 
     /// Keys of this map in descending order
-    pub fn descending_keys(&'a self) -> Keys<'a, K, C>
+    pub fn descending_keys(&'a self) -> DescendingKeys<'a, K, C>
     {
-        Keys { inner: self.descending_pairs.iter() }
+        DescendingKeys { inner: self.descending_pairs.iter() }
     }
 
     /// Values of this map in descending order
-    pub fn descending_values(&'a self) -> Values<'a, K, V, C>
+    pub fn descending_values(&'a self) -> DescendingValues<'a, K, V, C>
     {
-        Values {
+        DescendingValues {
             map: &self.map,
             keys: self.descending_keys(),
         }
     }
 
     /// (K, V) pairs of this map in descending order
-    pub fn descending_items(&'a self) -> Items<'a, K, V, C>
+    pub fn descending_items(&'a self) -> DescendingItems<'a, K, V, C>
     {
-        Items {
+        DescendingItems {
             map: &self.map,
             keys: self.descending_keys(),
         }
@@ -262,7 +262,7 @@ mod tests {
             map.insert(k.clone(), v.clone());
         }
 
-        map.unordered().len() == map.descending_keys().collect::<Vec<_>>().len()
+        map.map.len() == map.descending_keys().collect::<Vec<_>>().len()
     }
 
     #[quickcheck]
@@ -279,7 +279,7 @@ mod tests {
         let mut a = map.descending_keys().map(|x| x.clone()).collect::<Vec<_>>();
         a.sort();
 
-        let mut b = map.unordered().keys().map(|x| x.clone()).collect::<Vec<_>>();
+        let mut b = map.map.keys().map(|x| x.clone()).collect::<Vec<_>>();
         b.sort();
 
         let mut ks = ks;
@@ -304,13 +304,13 @@ mod tests {
             map.remove(k);
         }
 
-        let a = 0 == map.unordered().len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
+        let a = 0 == map.map.len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
 
         for k in other_keys.iter() {
             map.remove(k);
         }
 
-        let b = 0 == map.unordered().len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
+        let b = 0 == map.map.len() && 0 == map.descending_keys().collect::<Vec<_>>().len();
 
         a && b
     }
@@ -326,7 +326,7 @@ mod tests {
             map.insert(k.clone(), v.clone());
         }
 
-        let old_map = map.unordered().clone();
+        let old_map = map.map.clone();
         let old_keys =
             map.descending_keys().map(|k| k.clone()).collect::<Vec<u32>>();
 
@@ -336,7 +336,7 @@ mod tests {
         map.insert(k.clone(), new_v);
         map.remove(&k);
 
-        let new_map = map.unordered().clone();
+        let new_map = map.map.clone();
         let new_keys = map.descending_keys().map(|k| k.clone()).collect::<Vec<_>>();
 
         old_map == new_map && old_keys == new_keys
