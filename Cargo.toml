@@ -1,10 +1,12 @@
 [package]
 name = "ordered-map"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Incomplete <incomplete@aixon.co>"]
 edition = "2018"
 description = "A HashMap with the ability to access the keys sorted by value"
 license = "MIT"
+homepage = "https://github.com/qwfy/ordered-map"
+repository = "https://github.com/qwfy/ordered-map.git"
 
 [dependencies]
 quickcheck = "0.9.2"
