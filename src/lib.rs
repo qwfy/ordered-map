@@ -62,6 +62,26 @@ impl<'a, K, V, C> Iterator for Values<'a, K, V, C>
     }
 }
 
+pub struct Items<'a, K, V, C>
+{
+    map: &'a HashMap<K, V>,
+    keys: Keys<'a, K, C>,
+}
+
+impl<'a, K, V, C> Iterator for Items<'a, K, V, C>
+    where
+        K: Eq + Hash,
+{
+    type Item = (&'a K, &'a V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.keys.next() {
+            None => None,
+            Some(k) => Some((k, self.map.index(k)))
+        }
+    }
+}
+
 
 impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
     where
@@ -93,6 +113,15 @@ impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
     pub fn descending_values(&'a self) -> Values<'a, K, V, C>
     {
         Values {
+            map: &self.map,
+            keys: self.descending_keys(),
+        }
+    }
+
+    /// (K, V) pairs of this map in descending order
+    pub fn descending_items(&'a self) -> Items<'a, K, V, C>
+    {
+        Items {
             map: &self.map,
             keys: self.descending_keys(),
         }
