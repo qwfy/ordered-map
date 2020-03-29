@@ -6,6 +6,7 @@ extern crate quickcheck_macros;
 
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::iter::DoubleEndedIterator;
 use std::ops::Index;
 use std::vec::Vec;
 
@@ -42,6 +43,16 @@ impl<'a, K: 'a, C: 'a> Iterator for DescendingKeys<'a, K, C>
     }
 }
 
+impl<'a, K: 'a, C: 'a> DoubleEndedIterator for DescendingKeys<'a, K, C>
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.inner.next_back() {
+            None => None,
+            Some((k, _)) => Some(k)
+        }
+    }
+}
+
 pub struct DescendingValues<'a, K, V, C>
 {
     map: &'a HashMap<K, V>,
@@ -56,6 +67,18 @@ impl<'a, K, V, C> Iterator for DescendingValues<'a, K, V, C>
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.keys.next() {
+            None => None,
+            Some(k) => Some(self.map.index(k))
+        }
+    }
+}
+
+impl<'a, K, V, C> DoubleEndedIterator for DescendingValues<'a, K, V, C>
+    where
+        K: Eq + Hash,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.keys.next_back() {
             None => None,
             Some(k) => Some(self.map.index(k))
         }
@@ -82,6 +105,17 @@ impl<'a, K, V, C> Iterator for DescendingItems<'a, K, V, C>
     }
 }
 
+impl<'a, K, V, C> DoubleEndedIterator for DescendingItems<'a, K, V, C>
+    where
+        K: Eq + Hash,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.keys.next_back() {
+            None => None,
+            Some(k) => Some((k, self.map.index(k)))
+        }
+    }
+}
 
 impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
     where
@@ -143,8 +177,6 @@ impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
     }
 
 
-
-
     /// Insert a new key-value pair to the map,
     /// the old value is returned as `Option<V>`
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
@@ -175,8 +207,8 @@ impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
 }
 
 fn remove_from_pairs<K, C>(pairs: &mut Vec<(K, C)>, k: &K) -> bool
-where
-    K: Eq
+    where
+        K: Eq
 {
     let mut removed = false;
     for i in 0..pairs.len() {
