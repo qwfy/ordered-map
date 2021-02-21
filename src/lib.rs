@@ -18,6 +18,7 @@ type ExtractComparable<V, C> = fn(&V) -> C;
 /// It doesn't require the value of the map, `V`, to be comparable,
 /// the comparison of the value is done on `C`,
 /// which is the return value of `extract_comparable(&V)`.
+#[derive(Clone)]
 pub struct OrderedMap<K, V, C> {
     map: HashMap<K, V>,
 
