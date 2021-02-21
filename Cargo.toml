@@ -1,6 +1,6 @@
 [package]
 name = "ordered-map"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Incomplete <incomplete@aixon.co>"]
 edition = "2018"
 description = "A HashMap, with the capability of accessing the keys and values in order"

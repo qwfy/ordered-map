@@ -5,6 +5,7 @@ extern crate quickcheck;
 extern crate quickcheck_macros;
 
 use std::collections::HashMap;
+use std::fmt;
 use std::hash::Hash;
 use std::iter::DoubleEndedIterator;
 use std::ops::Index;
@@ -15,10 +16,9 @@ type ExtractComparable<V, C> = fn(&V) -> C;
 /// An `OrderedMap` is like a `std::collections::HashMap`,
 /// but it is sorted according to the value in descending order.
 /// It doesn't require the value of the map, `V`, to be comparable,
-/// the comparision of the value is done on `C`,
+/// the comparison of the value is done on `C`,
 /// which is the return value of `extract_comparable(&V)`.
-pub struct OrderedMap<K, V, C>
-{
+pub struct OrderedMap<K, V, C> {
     map: HashMap<K, V>,
 
     descending_pairs: Vec<(K, C)>,
@@ -26,106 +26,109 @@ pub struct OrderedMap<K, V, C>
     extract_comparable: ExtractComparable<V, C>,
 }
 
-pub struct DescendingKeys<'a, K: 'a, C: 'a>
-{
-    inner: std::slice::Iter<'a, (K, C)>
+impl<K: fmt::Debug, V: fmt::Debug, C: fmt::Debug> fmt::Debug for OrderedMap<K, V, C> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("OrderedMap")
+            .field("map", &self.map)
+            .field("descending_pairs", &self.descending_pairs)
+            .finish()
+    }
 }
 
-impl<'a, K: 'a, C: 'a> Iterator for DescendingKeys<'a, K, C>
-{
+pub struct DescendingKeys<'a, K: 'a, C: 'a> {
+    inner: std::slice::Iter<'a, (K, C)>,
+}
+
+impl<'a, K: 'a, C: 'a> Iterator for DescendingKeys<'a, K, C> {
     type Item = &'a K;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner.next() {
             None => None,
-            Some((k, _)) => Some(k)
+            Some((k, _)) => Some(k),
         }
     }
 }
 
-impl<'a, K: 'a, C: 'a> DoubleEndedIterator for DescendingKeys<'a, K, C>
-{
+impl<'a, K: 'a, C: 'a> DoubleEndedIterator for DescendingKeys<'a, K, C> {
     fn next_back(&mut self) -> Option<Self::Item> {
         match self.inner.next_back() {
             None => None,
-            Some((k, _)) => Some(k)
+            Some((k, _)) => Some(k),
         }
     }
 }
 
-pub struct DescendingValues<'a, K, V, C>
-{
+pub struct DescendingValues<'a, K, V, C> {
     map: &'a HashMap<K, V>,
     keys: DescendingKeys<'a, K, C>,
 }
 
 impl<'a, K, V, C> Iterator for DescendingValues<'a, K, V, C>
-    where
-        K: Eq + Hash,
+where
+    K: Eq + Hash,
 {
     type Item = &'a V;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.keys.next() {
             None => None,
-            Some(k) => Some(self.map.index(k))
+            Some(k) => Some(self.map.index(k)),
         }
     }
 }
 
 impl<'a, K, V, C> DoubleEndedIterator for DescendingValues<'a, K, V, C>
-    where
-        K: Eq + Hash,
+where
+    K: Eq + Hash,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         match self.keys.next_back() {
             None => None,
-            Some(k) => Some(self.map.index(k))
+            Some(k) => Some(self.map.index(k)),
         }
     }
 }
 
-pub struct DescendingItems<'a, K, V, C>
-{
+pub struct DescendingItems<'a, K, V, C> {
     map: &'a HashMap<K, V>,
     keys: DescendingKeys<'a, K, C>,
 }
 
 impl<'a, K, V, C> Iterator for DescendingItems<'a, K, V, C>
-    where
-        K: Eq + Hash,
+where
+    K: Eq + Hash,
 {
     type Item = (&'a K, &'a V);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.keys.next() {
             None => None,
-            Some(k) => Some((k, self.map.index(k)))
+            Some(k) => Some((k, self.map.index(k))),
         }
     }
 }
 
 impl<'a, K, V, C> DoubleEndedIterator for DescendingItems<'a, K, V, C>
-    where
-        K: Eq + Hash,
+where
+    K: Eq + Hash,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         match self.keys.next_back() {
             None => None,
-            Some(k) => Some((k, self.map.index(k)))
+            Some(k) => Some((k, self.map.index(k))),
         }
     }
 }
 
 impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
-    where
-        K: Eq + Hash + Copy,
-        C: PartialOrd
+where
+    K: Eq + Hash + Copy,
+    C: PartialOrd,
 {
     /// The function `extract_comparable` is used to convert the value of type `&V`
     /// to something comparable of type `C`
-    pub fn new(extract_comparable: ExtractComparable<V, C>) -> Self
-    {
+    pub fn new(extract_comparable: ExtractComparable<V, C>) -> Self {
         OrderedMap {
             map: HashMap::new(),
             descending_pairs: vec![],
@@ -138,14 +141,14 @@ impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
     }
 
     /// Keys of this map in descending order
-    pub fn descending_keys(&'a self) -> DescendingKeys<'a, K, C>
-    {
-        DescendingKeys { inner: self.descending_pairs.iter() }
+    pub fn descending_keys(&'a self) -> DescendingKeys<'a, K, C> {
+        DescendingKeys {
+            inner: self.descending_pairs.iter(),
+        }
     }
 
     /// Values of this map in descending order
-    pub fn descending_values(&'a self) -> DescendingValues<'a, K, V, C>
-    {
+    pub fn descending_values(&'a self) -> DescendingValues<'a, K, V, C> {
         DescendingValues {
             map: &self.map,
             keys: self.descending_keys(),
@@ -153,8 +156,7 @@ impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
     }
 
     /// (K, V) pairs of this map in descending order
-    pub fn descending_items(&'a self) -> DescendingItems<'a, K, V, C>
-    {
+    pub fn descending_items(&'a self) -> DescendingItems<'a, K, V, C> {
         DescendingItems {
             map: &self.map,
             keys: self.descending_keys(),
@@ -171,11 +173,10 @@ impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
         }
         let idx = match insert_index {
             None => self.descending_pairs.len(),
-            Some(i) => i
+            Some(i) => i,
         };
         self.descending_pairs.insert(idx, (k, c));
     }
-
 
     /// Insert a new key-value pair to the map,
     /// the old value is returned as `Option<V>`
@@ -207,8 +208,8 @@ impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
 }
 
 fn remove_from_pairs<K, C>(pairs: &mut Vec<(K, C)>, k: &K) -> bool
-    where
-        K: Eq
+where
+    K: Eq,
 {
     let mut removed = false;
     for i in 0..pairs.len() {
@@ -244,7 +245,9 @@ mod tests {
             map.insert(k.clone(), v.clone());
         }
 
-        let mut tuples: Vec<(i32, f32)> = ks.iter().zip(vs.iter())
+        let mut tuples: Vec<(i32, f32)> = ks
+            .iter()
+            .zip(vs.iter())
             .map(|(k, v)| (k.clone(), to_comparable(v)))
             .collect();
         let mut count = HashMap::new();
@@ -359,8 +362,10 @@ mod tests {
         }
 
         let old_map = map.map.clone();
-        let old_keys =
-            map.descending_keys().map(|k| k.clone()).collect::<Vec<u32>>();
+        let old_keys = map
+            .descending_keys()
+            .map(|k| k.clone())
+            .collect::<Vec<u32>>();
 
         // create a unique key
         let k: u32 = ks.iter().sum();
