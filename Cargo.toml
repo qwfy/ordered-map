@@ -8,6 +8,6 @@ license = "MIT"
 homepage = "https://github.com/qwfy/ordered-map"
 repository = "https://github.com/qwfy/ordered-map.git"
 
-[dependencies]
+[dev-dependencies]
 quickcheck = "0.9.2"
 quickcheck_macros = "0.9.1"
