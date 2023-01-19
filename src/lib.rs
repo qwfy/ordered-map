@@ -206,6 +206,11 @@ where
             }
         }
     }
+
+    /// Get a value from the map
+    pub fn get(&self, k: &K) -> Option<&V> {
+        self.map.get(k)
+    }
 }
 
 fn remove_from_pairs<K, C>(pairs: &mut Vec<(K, C)>, k: &K) -> bool
@@ -378,5 +383,13 @@ mod tests {
         let new_keys = map.descending_keys().map(|k| k.clone()).collect::<Vec<_>>();
 
         old_map == new_map && old_keys == new_keys
+    }
+
+    #[quickcheck]
+    fn insert_and_get(key: u32, val: (f32, f64)) -> bool {
+        let mut map = OrderedMap::new(to_comparable);
+        map.insert(key, val);
+        let res = map.get(&key).unwrap();
+        res == &val
     }
 }
