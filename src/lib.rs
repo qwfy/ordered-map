@@ -208,7 +208,7 @@ where
     }
 
     /// Get a value from the map
-    pub fn get(&mut self, k: &K) -> Option<&V> {
+    pub fn get(&self, k: &K) -> Option<&V> {
         self.map.get(k)
     }
 }
