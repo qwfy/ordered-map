@@ -111,7 +111,7 @@ where
 
 impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
 where
-    K: Eq + Hash + Copy + Ord,
+    K: Eq + Hash + Copy,
     C: Ord,
 {
     /// The function `extract_comparable` is used to convert the value of type `&V`
