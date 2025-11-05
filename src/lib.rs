@@ -151,6 +151,11 @@ where
         }
     }
 
+    /// Get a reference to the value corresponding to the key
+    pub fn get(&self, k: &K) -> Option<&V> {
+        self.map.get(k)
+    }
+
     /// Insert a new key-value pair to the map,
     /// the old value is returned as `Option<V>`
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
