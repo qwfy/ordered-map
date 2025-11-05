@@ -1,15 +1,8 @@
-#[cfg(test)]
-extern crate quickcheck;
-#[cfg(test)]
-#[macro_use(quickcheck)]
-extern crate quickcheck_macros;
-
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::hash::Hash;
 use std::iter::DoubleEndedIterator;
 use std::ops::Index;
-use std::vec::Vec;
 
 type ExtractComparable<V, C> = fn(&V) -> C;
 
@@ -22,7 +15,7 @@ type ExtractComparable<V, C> = fn(&V) -> C;
 pub struct OrderedMap<K, V, C> {
     map: HashMap<K, V>,
 
-    descending_pairs: Vec<(K, C)>,
+    descending_pairs: BTreeMap<C, K>,
 
     extract_comparable: ExtractComparable<V, C>,
 }
@@ -37,26 +30,20 @@ impl<K: fmt::Debug, V: fmt::Debug, C: fmt::Debug> fmt::Debug for OrderedMap<K, V
 }
 
 pub struct DescendingKeys<'a, K: 'a, C: 'a> {
-    inner: std::slice::Iter<'a, (K, C)>,
+    inner: std::collections::btree_map::Iter<'a, C, K>,
 }
 
 impl<'a, K: 'a, C: 'a> Iterator for DescendingKeys<'a, K, C> {
     type Item = &'a K;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.inner.next() {
-            None => None,
-            Some((k, _)) => Some(k),
-        }
+        self.inner.next().map(|(_, k)| k)
     }
 }
 
 impl<'a, K: 'a, C: 'a> DoubleEndedIterator for DescendingKeys<'a, K, C> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        match self.inner.next_back() {
-            None => None,
-            Some((k, _)) => Some(k),
-        }
+        self.inner.next_back().map(|(_, k)| k)
     }
 }
 
@@ -124,15 +111,15 @@ where
 
 impl<'a, K: 'a, V: 'a, C: 'a> OrderedMap<K, V, C>
 where
-    K: Eq + Hash + Copy,
-    C: PartialOrd,
+    K: Eq + Hash + Copy + Ord,
+    C: Ord,
 {
     /// The function `extract_comparable` is used to convert the value of type `&V`
     /// to something comparable of type `C`
     pub fn new(extract_comparable: ExtractComparable<V, C>) -> Self {
         OrderedMap {
             map: HashMap::new(),
-            descending_pairs: vec![],
+            descending_pairs: BTreeMap::new(),
             extract_comparable,
         }
     }
@@ -164,70 +151,47 @@ where
         }
     }
 
-    fn insert_into_pairs(&mut self, k: K, c: C) {
-        let mut insert_index = None;
-        for (i, (_ek, ec)) in self.descending_pairs.iter().enumerate() {
-            if &c >= ec {
-                insert_index = Some(i);
-                break;
-            }
-        }
-        let idx = match insert_index {
-            None => self.descending_pairs.len(),
-            Some(i) => i,
-        };
-        self.descending_pairs.insert(idx, (k, c));
-    }
-
     /// Insert a new key-value pair to the map,
     /// the old value is returned as `Option<V>`
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {
         let new_c = (self.extract_comparable)(&v);
-        match self.map.insert(k, v) {
-            None => {
-                self.insert_into_pairs(k, new_c);
-                None
-            }
-            Some(v) => {
-                remove_from_pairs(&mut self.descending_pairs, &k);
-                self.insert_into_pairs(k, new_c);
-                Some(v)
-            }
-        }
+
+        self.descending_pairs.insert(new_c, k);
+
+        self.map.insert(k, v)
     }
 
     /// Remove a key-value pair from the map
     pub fn remove(&mut self, k: &K) -> Option<V> {
-        match self.map.remove(k) {
-            None => None,
-            Some(v) => {
-                remove_from_pairs(&mut self.descending_pairs, k);
-                Some(v)
-            }
-        }
+        let old = self.map.remove(k);
+
+        if let Some(old) = &old {
+            self.descending_pairs
+                .remove(&(self.extract_comparable)(&old));
+        };
+
+        old
     }
 }
 
-fn remove_from_pairs<K, C>(pairs: &mut Vec<(K, C)>, k: &K) -> bool
+impl<K, V> Default for OrderedMap<K, V, V>
 where
-    K: Eq,
+    V: Ord + Clone,
 {
-    let mut removed = false;
-    for i in 0..pairs.len() {
-        if pairs[i].0 == *k {
-            pairs.remove(i);
-            removed = true;
-            break;
+    fn default() -> Self {
+        Self {
+            map: Default::default(),
+            descending_pairs: Default::default(),
+            extract_comparable: |v| v.clone(),
         }
     }
-    removed
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::OrderedMap;
+    use quickcheck_macros::quickcheck;
+    use std::collections::HashMap;
 
     fn to_comparable(t: &(f32, f64)) -> f32 {
         t.0
